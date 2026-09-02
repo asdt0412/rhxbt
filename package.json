@@ -1,0 +1,37 @@
+{
+  "name": "rhood-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Autonomous X agent covering Robinhood Chain — posts and mention replies.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts --dry-run",
+    "start": "tsx src/index.ts",
+    "start:dry": "tsx src/index.ts --dry-run",
+    "self-test": "tsx src/index.ts --dry-run --self-test",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/filter.test.ts src/score.test.ts src/budget.test.ts src/marketHours.test.ts src/db.test.ts src/cap0.test.ts src/safety.test.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.62.0",
+    "dotenv": "^16.6.1",
+    "drizzle-orm": "^0.44.5",
+    "node-cron": "^4.2.1",
+    "pg": "^8.16.3",
+    "tsx": "^4.20.5",
+    "twitter-api-v2": "^1.27.0",
+    "viem": "^2.37.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.15.5",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.9.2"
+  }
+}
