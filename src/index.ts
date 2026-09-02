@@ -1,10 +1,9 @@
 import cron from "node-cron";
-import { watchNewPools } from "./collectors/newPools.js";
 import { assertProductionConfig, flags, hasXCredentials } from "./config.js";
 import { closeDb, initDb } from "./db.js";
 import { runHarness, runSelfTest } from "./harness.js";
 import { log } from "./logger.js";
-import { ingestSignals, runPostingPipeline, runReplyPipeline } from "./pipeline.js";
+import { runDailyRecap, runLookTick, runReplyPipeline } from "./pipeline.js";
 
 function banner(): void {
   log.info("rhood agent starting", {
@@ -36,35 +35,41 @@ async function main(): Promise<void> {
   }
 
   if (flags.once) {
-    await runPostingPipeline();
-    await runReplyPipeline();
+    // Independent loops — never await one from the other.
+    await Promise.all([runLookTick(), runReplyPipeline()]);
     await closeDb();
     return;
   }
 
-  const stopWatch = watchNewPools((signal) => {
-    log.info("realtime pool signal", { ref: signal.ref });
-    void ingestSignals([signal]);
+  // Look cadence only: how often we inspect the chain. Posting is event-driven.
+  const lookJob = cron.schedule("*/3 * * * *", () => {
+    void runLookTick().catch((err) => log.error("look tick", { err: String(err) }));
   });
 
-  const postingJob = cron.schedule("*/3 * * * *", () => {
-    void runPostingPipeline().catch((err) => log.error("posting cycle", { err: String(err) }));
-  });
+  const recapJob = cron.schedule(
+    "0 21 * * *",
+    () => {
+      void runDailyRecap().catch((err) => log.error("daily recap", { err: String(err) }));
+    },
+    { timezone: "America/New_York" },
+  );
 
-  const replyTimer = setInterval(() => {
+  const replyJob = cron.schedule("*/10 * * * *", () => {
     void runReplyPipeline().catch((err) => log.error("reply cycle", { err: String(err) }));
-  }, 90_000);
+  });
 
-  void runPostingPipeline().catch((err) => log.error("initial posting", { err: String(err) }));
+  void runLookTick().catch((err) => log.error("initial look", { err: String(err) }));
   void runReplyPipeline().catch((err) => log.error("initial reply", { err: String(err) }));
 
-  log.info("loops armed: posting */3min, replies 90s, ws new-pools");
+  log.info(
+    "loops armed independently: look */3min (post iff analyzer says so), recap 21:00 ET, replies */10min (max 1)",
+  );
 
   const shutdown = async (signal: string) => {
     log.info("shutdown", { signal });
-    postingJob.stop();
-    clearInterval(replyTimer);
-    stopWatch();
+    lookJob.stop();
+    recapJob.stop();
+    replyJob.stop();
     await closeDb();
     process.exit(0);
   };

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { rankMentions, scoreMention } from "./score.js";
+import { pickTopMention, rankMentions, scoreMention } from "./score.js";
 import type { Mention } from "./types.js";
 
 const base = (over: Partial<Mention>): Mention => ({
@@ -28,5 +28,14 @@ describe("score", () => {
     const q = scoreMention(base({ text: "what is tsla?" }));
     const nq = scoreMention(base({ text: "tsla token on robinhood chain looking active" }));
     assert.ok(q.score > nq.score);
+  });
+
+  it("picks exactly one top mention or none", () => {
+    assert.equal(pickTopMention([]), null);
+    const top = pickTopMention([
+      base({ tweetId: "low", authorFollowers: 50 }),
+      base({ tweetId: "high", authorFollowers: 10_000 }),
+    ]);
+    assert.equal(top?.tweetId, "high");
   });
 });

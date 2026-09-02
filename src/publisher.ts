@@ -19,7 +19,7 @@ export async function publish(signal: Signal, text: string): Promise<string | nu
   }
 
   if (flags.dryRun) {
-    log.info("DRY-RUN post", { ref: signal.ref, type: signal.type, text: body });
+    log.info("DRY-RUN post", { ref: signal.ref, beat: signal.beat, type: signal.type, text: body });
     await store.markPosted(signal.ref, `dryrun-${Date.now()}`, body);
     return `dryrun-${signal.ref}`;
   }

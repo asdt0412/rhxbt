@@ -1,7 +1,7 @@
 import { TwitterApi, type TweetV2, type TwitterRateLimit, type UserV2 } from "twitter-api-v2";
 import { config, flags, hasXCredentials } from "./config.js";
 import { log } from "./logger.js";
-import { noteRateLimit, withXRateLimit } from "./ratelimit.js";
+import { noteRateLimit, withXRateLimit, type XLane } from "./ratelimit.js";
 
 let client: TwitterApi | null = null;
 
@@ -18,29 +18,36 @@ export function getX(): TwitterApi | null {
   return client;
 }
 
-function captureLimit(rateLimit: TwitterRateLimit | { remaining?: number; reset?: number; limit?: number } | undefined): void {
+function captureLimit(
+  rateLimit: TwitterRateLimit | { remaining?: number; reset?: number; limit?: number } | undefined,
+  lane: XLane,
+): void {
   if (!rateLimit) return;
-  noteRateLimit({
-    remaining: rateLimit.remaining,
-    reset: rateLimit.reset,
-    limit: rateLimit.limit,
-  });
+  noteRateLimit(
+    {
+      remaining: rateLimit.remaining,
+      reset: rateLimit.reset,
+      limit: rateLimit.limit,
+    },
+    lane,
+  );
 }
 
-function captureFromClient(x: TwitterApi): void {
+function captureFromClient(x: TwitterApi, lane: XLane, endpointMatch?: string): void {
   const maker = (x as unknown as { _requestMaker?: { rateLimits?: Record<string, TwitterRateLimit> } })
     ._requestMaker;
   const limits = maker?.rateLimits ?? {};
   let remaining: number | undefined;
   let reset: number | undefined;
-  for (const v of Object.values(limits)) {
+  for (const [key, v] of Object.entries(limits)) {
+    if (endpointMatch && !key.toLowerCase().includes(endpointMatch.toLowerCase())) continue;
     if (typeof v.remaining !== "number") continue;
     if (remaining === undefined || v.remaining < remaining) {
       remaining = v.remaining;
       reset = v.reset;
     }
   }
-  if (remaining !== undefined) noteRateLimit({ remaining, reset });
+  if (remaining !== undefined) noteRateLimit({ remaining, reset }, lane);
 }
 
 export async function postTweet(text: string, inReplyTo?: string): Promise<string | null> {
@@ -53,12 +60,15 @@ export async function postTweet(text: string, inReplyTo?: string): Promise<strin
     log.warn("x client missing — cannot post");
     return null;
   }
+  const lane: XLane = inReplyTo ? "reply" : "news";
   const result = await withXRateLimit(async () => {
     const payload = inReplyTo ? { text, reply: { in_reply_to_tweet_id: inReplyTo } } : { text };
     const res = await x.v2.tweet(payload);
-    captureFromClient(x);
+    const rl = (res as { rateLimit?: TwitterRateLimit }).rateLimit;
+    if (rl) captureLimit(rl, lane);
+    else captureFromClient(x, lane, "tweets");
     return res.data.id;
-  });
+  }, lane);
   return result;
 }
 
@@ -93,7 +103,7 @@ export async function fetchMentions(sinceId?: string): Promise<MentionPage | nul
       ],
       "user.fields": ["public_metrics", "username"],
     });
-    captureLimit(res.rateLimit);
+    captureLimit(res.rateLimit, "reply");
     const users = new Map<string, UserV2>();
     for (const u of res.includes.users ?? []) users.set(u.id, u);
     const includesTweets = new Map<string, TweetV2>();
@@ -104,7 +114,7 @@ export async function fetchMentions(sinceId?: string): Promise<MentionPage | nul
       includesTweets,
       newestId: res.meta.newest_id,
     };
-  });
+  }, "reply");
 }
 
 export async function fetchTweetsByIds(ids: string[]): Promise<Map<string, TweetV2>> {
@@ -116,9 +126,25 @@ export async function fetchTweetsByIds(ids: string[]): Promise<Map<string, Tweet
     const res = await x.v2.tweets(unique, {
       "tweet.fields": ["author_id", "conversation_id", "text", "referenced_tweets", "public_metrics"],
     });
-    captureFromClient(x);
+    captureFromClient(x, "reply", "tweets");
     return res.data ?? [];
-  });
+  }, "reply");
   for (const t of page ?? []) out.set(t.id, t);
   return out;
+}
+
+const NARRATIVE_QUERY =
+  'from:RobinhoodApp (chain OR "stock token" OR tokenized OR listing OR partnership OR earn OR usdg OR uniswap OR morpho OR lighter)';
+
+export async function searchNarrativeTweets(): Promise<TweetV2[] | null> {
+  const x = getX();
+  if (!x) return null;
+  return withXRateLimit(async () => {
+    const res = await x.v2.search(NARRATIVE_QUERY, {
+      max_results: 20,
+      "tweet.fields": ["created_at", "public_metrics", "text", "author_id"],
+    });
+    captureLimit(res.rateLimit, "news");
+    return res.tweets ?? res.data.data ?? [];
+  }, "news");
 }

@@ -19,6 +19,22 @@ export const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as Addres
 
 export const L2_GATEWAY_ROUTER = "0x1E324B9316138CA9a73F960213621AD1aaf01B89" as Address;
 
+export const MORPHO_VAULTS = [
+  "0xBeEff033F34C046626B8D0A041844C5d1A5409dd",
+  "0xbEeFF0fb1Dc19344A87b8479dAb60A2e16160737",
+  "0x37788ff0c1d4e45A7FE06BC7e71e0cc00121d0A8",
+  "0xBEEff039907422219Fb367e525954DDC092854d9",
+] as const satisfies readonly Address[];
+
+export const SEED_POOLS = [
+  "0x52e65B17fB6E5BA00Ed806f37Afcd2DaA50271Ca",
+  "0x69BfaF19C9f377BB306a89aEd9F6B07e2c1a8d9a",
+  "0xa9188730Fe85Be88ad499D7d52B099e800fB0334",
+] as const satisfies readonly Address[];
+
+export const TRANSFER_TOPIC =
+  "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" as const;
+
 export const FEE_TIERS = [100, 500, 3000, 10000] as const;
 
 export const ON_TOPIC_TICKERS = [

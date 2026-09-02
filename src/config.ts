@@ -55,7 +55,8 @@ export const config = {
   maxRepliesPer15Min: envInt("MAX_REPLIES_PER_15MIN", 10),
   maxRepliesPerDay: envInt("MAX_REPLIES_PER_DAY", 100),
   maxRepliesPerMonth: envInt("MAX_REPLIES_PER_MONTH", 1500),
-  maxPostsPerCycle: envInt("MAX_POSTS_PER_CYCLE", 2),
+  /** Unused: a look tick publishes at most once, and only if the analyzer returns a post. */
+  maxPostsPerCycle: envInt("MAX_POSTS_PER_CYCLE", 1),
   minFollowers: envInt("MIN_FOLLOWERS", 50),
   minLiquidityUsd: envInt("MIN_LIQUIDITY_USD", 5000),
   stockMoveThresholdPct: Number(envString("STOCK_MOVE_THRESHOLD_PCT", "1.5")),
@@ -68,6 +69,17 @@ export const config = {
     "L2_GATEWAY_ROUTER",
     "0x1E324B9316138CA9a73F960213621AD1aaf01B89",
   ),
+  finnhubApiKey: envString("FINNHUB_API_KEY"),
+  polygonApiKey: envString("POLYGON_API_KEY"),
+  whaleUsd: envInt("WHALE_USD_THRESHOLD", 50_000),
+  stockBasisThresholdPct: Number(envString("STOCK_BASIS_THRESHOLD_PCT", "0.8")),
+  graduationUsd: envInt("GRADUATION_USD", 50_000),
+  liqPullUsd: envInt("LIQ_PULL_USD", 25_000),
+  ingestLookbackBlocks: envInt("INGEST_LOOKBACK_BLOCKS", 36_000),
+  trackedWallets: envString("TRACKED_WALLETS")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
 } as const;
 
 export function hasXCredentials(): boolean {

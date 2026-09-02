@@ -10,3 +10,8 @@ export function scoreMention(m: Mention): ScoredMention {
 export function rankMentions(mentions: Mention[]): ScoredMention[] {
   return mentions.map(scoreMention).sort((a, b) => b.score - a.score);
 }
+
+/** One mention per 10-minute tick. Everyone else is dropped this cycle. */
+export function pickTopMention(mentions: Mention[]): ScoredMention | null {
+  return rankMentions(mentions)[0] ?? null;
+}

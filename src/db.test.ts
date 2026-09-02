@@ -16,5 +16,10 @@ describe("memory store dedupe", () => {
     assert.equal(await s.markReplied("t1", "a1"), false);
     assert.equal(await s.hasReplied("t1"), true);
     assert.equal(await s.countReplies("15min"), 1);
+
+    await s.recordBeatPost("whales", "w1", "2026-09-03T00");
+    await s.recordBeatPost("whales", "w2", "2026-09-03T00");
+    assert.equal(await s.countBeatPosts("whales", "2026-09-03T00"), 2);
+    assert.equal(await s.countBeatPosts("whales", "2026-09-03T01"), 0);
   });
 });

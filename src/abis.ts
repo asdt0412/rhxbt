@@ -70,6 +70,33 @@ export const swapEvent = {
   ],
 } as const;
 
+export const mintEvent = {
+  type: "event",
+  name: "Mint",
+  inputs: [
+    { name: "sender", type: "address", indexed: false },
+    { name: "owner", type: "address", indexed: true },
+    { name: "tickLower", type: "int24", indexed: true },
+    { name: "tickUpper", type: "int24", indexed: true },
+    { name: "amount", type: "uint128", indexed: false },
+    { name: "amount0", type: "uint256", indexed: false },
+    { name: "amount1", type: "uint256", indexed: false },
+  ],
+} as const;
+
+export const burnEvent = {
+  type: "event",
+  name: "Burn",
+  inputs: [
+    { name: "owner", type: "address", indexed: true },
+    { name: "tickLower", type: "int24", indexed: true },
+    { name: "tickUpper", type: "int24", indexed: true },
+    { name: "amount", type: "uint128", indexed: false },
+    { name: "amount0", type: "uint256", indexed: false },
+    { name: "amount1", type: "uint256", indexed: false },
+  ],
+} as const;
+
 export const uniV3PoolAbi = [
   {
     type: "function",
@@ -91,6 +118,8 @@ export const uniV3PoolAbi = [
   { type: "function", name: "token1", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
   { type: "function", name: "fee", stateMutability: "view", inputs: [], outputs: [{ type: "uint24" }] },
   swapEvent,
+  mintEvent,
+  burnEvent,
 ] as const;
 
 export const l2GatewayRouterAbi = [

@@ -1,0 +1,18 @@
+type RawEvent {
+  id: ID!
+  eventName: String!
+  address: String!
+  txHash: String!
+  blockNumber: BigInt!
+  logIndex: Int!
+  timestamp: BigInt
+  argsJson: String!
+}
+
+type WatchedPool {
+  id: ID!
+  token0: String!
+  token1: String!
+  fee: Int!
+  createdBlock: BigInt!
+}

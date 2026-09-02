@@ -9,6 +9,11 @@ export type HyperLog = {
   blockNumber?: number;
 };
 
+export type LogSelection = {
+  address?: string[];
+  topic0: string[];
+};
+
 type QueryBody = {
   from_block: number;
   to_block?: number;
@@ -19,25 +24,23 @@ type QueryBody = {
   max_num_logs?: number;
 };
 
-export async function queryLogs(opts: {
+export async function queryLogsMany(opts: {
   fromBlock: number;
   toBlock?: number;
-  address?: string;
-  topic0: string;
+  selections: LogSelection[];
 }): Promise<HyperLog[]> {
+  if (opts.selections.length === 0) return [];
   const body: QueryBody = {
     from_block: opts.fromBlock,
     ...(opts.toBlock !== undefined ? { to_block: opts.toBlock } : {}),
-    logs: [
-      {
-        ...(opts.address ? { address: [opts.address.toLowerCase()] } : {}),
-        topics: [[opts.topic0]],
-      },
-    ],
+    logs: opts.selections.map((s) => ({
+      ...(s.address?.length ? { address: s.address.map((a) => a.toLowerCase()) } : {}),
+      topics: [s.topic0],
+    })),
     field_selection: {
       log: ["address", "data", "topic0", "topic1", "topic2", "topic3", "transaction_hash", "block_number"],
     },
-    max_num_logs: 2000,
+    max_num_logs: 4000,
   };
 
   const url = `${config.hypersyncUrl.replace(/\/$/, "")}/query`;
@@ -57,6 +60,19 @@ export async function queryLogs(opts: {
   };
   const raw = json.data?.logs ?? json.logs ?? [];
   return raw.map(normalizeLog);
+}
+
+export async function queryLogs(opts: {
+  fromBlock: number;
+  toBlock?: number;
+  address?: string;
+  topic0: string;
+}): Promise<HyperLog[]> {
+  return queryLogsMany({
+    fromBlock: opts.fromBlock,
+    toBlock: opts.toBlock,
+    selections: [{ address: opts.address ? [opts.address] : undefined, topic0: [opts.topic0] }],
+  });
 }
 
 function normalizeLog(row: Record<string, unknown>): HyperLog {
@@ -92,6 +108,15 @@ function asHex(v: unknown): string | undefined {
 export async function queryLogsSafe(opts: Parameters<typeof queryLogs>[0]): Promise<HyperLog[]> {
   try {
     return await queryLogs(opts);
+  } catch (err) {
+    log.warn("hypersync query failed", { err: String(err) });
+    return [];
+  }
+}
+
+export async function queryLogsManySafe(opts: Parameters<typeof queryLogsMany>[0]): Promise<HyperLog[]> {
+  try {
+    return await queryLogsMany(opts);
   } catch (err) {
     log.warn("hypersync query failed", { err: String(err) });
     return [];

@@ -3,7 +3,8 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { config, flags } from "./config.js";
 import { log } from "./logger.js";
-import { postedSignals, repliedTweets, schema, seenSignals, kvState } from "./schema.js";
+import { beatPosts, postedSignals, repliedTweets, schema, seenSignals, kvState } from "./schema.js";
+import type { Beat } from "./types.js";
 
 const { Pool } = pg;
 
@@ -19,6 +20,8 @@ export interface Store {
   countReplies(interval: Interval): Promise<number>;
   getKv(key: string): Promise<string | null>;
   setKv(key: string, value: string): Promise<void>;
+  recordBeatPost(beat: Beat, signalRef: string, hourKey: string): Promise<void>;
+  countBeatPosts(beat: Beat, hourKey: string): Promise<number>;
 }
 
 function intervalSince(interval: Interval): Date {
@@ -92,6 +95,16 @@ class MemoryStore implements Store {
 
   async setKv(key: string, value: string): Promise<void> {
     this.kv.set(key, value);
+  }
+
+  async recordBeatPost(beat: Beat, signalRef: string, hourKey: string): Promise<void> {
+    this.kv.set(`beatpost:${beat}:${hourKey}:${signalRef}`, "1");
+    const n = Number(this.kv.get(`beatcount:${beat}:${hourKey}`) ?? "0");
+    this.kv.set(`beatcount:${beat}:${hourKey}`, String(n + 1));
+  }
+
+  async countBeatPosts(beat: Beat, hourKey: string): Promise<number> {
+    return Number(this.kv.get(`beatcount:${beat}:${hourKey}`) ?? "0");
   }
 }
 
@@ -175,6 +188,18 @@ class PgStore implements Store {
         set: { value, updatedAt: new Date() },
       });
   }
+
+  async recordBeatPost(beat: Beat, signalRef: string, hourKey: string): Promise<void> {
+    await this.db.insert(beatPosts).values({ beat, signalRef, hourKey });
+  }
+
+  async countBeatPosts(beat: Beat, hourKey: string): Promise<number> {
+    const rows = await this.db
+      .select({ n: count() })
+      .from(beatPosts)
+      .where(and(eq(beatPosts.beat, beat), eq(beatPosts.hourKey, hourKey)));
+    return Number(rows[0]?.n ?? 0);
+  }
 }
 
 let store: Store = new MemoryStore();
@@ -205,6 +230,27 @@ CREATE TABLE IF NOT EXISTS kv_state (
   value TEXT NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS raw_events (
+  id TEXT PRIMARY KEY,
+  event_name VARCHAR(64) NOT NULL,
+  address VARCHAR(42) NOT NULL,
+  tx_hash TEXT NOT NULL,
+  block_number BIGINT NOT NULL,
+  log_index INT NOT NULL,
+  ts TIMESTAMPTZ,
+  args TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS raw_events_block_idx ON raw_events (block_number);
+CREATE INDEX IF NOT EXISTS raw_events_name_idx ON raw_events (event_name);
+CREATE INDEX IF NOT EXISTS raw_events_addr_idx ON raw_events (address);
+CREATE TABLE IF NOT EXISTS beat_posts (
+  id BIGSERIAL PRIMARY KEY,
+  beat VARCHAR(32) NOT NULL,
+  hour_key VARCHAR(16) NOT NULL,
+  signal_ref TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS beat_posts_hour_idx ON beat_posts (beat, hour_key);
 `;
 
 export async function initDb(): Promise<Store> {
@@ -231,6 +277,10 @@ export async function initDb(): Promise<Store> {
 
 export function getStore(): Store {
   return store;
+}
+
+export function getPool(): pg.Pool | null {
+  return pool;
 }
 
 export async function countReplies(interval: Interval): Promise<number> {

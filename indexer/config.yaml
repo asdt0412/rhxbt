@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://unpkg.com/envio/evm.schema.json
+name: rhxbt-hyperindex
+description: Full-chain decoded events for Robinhood Chain (4663) via HyperSync
+raw_events: true
+field_selection:
+  transaction_fields:
+    - hash
+  block_fields:
+    - timestamp
+    - number
+contracts:
+  - name: UniswapV3Factory
+    events:
+      - event: PoolCreated(address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool)
+  - name: UniswapV3Pool
+    events:
+      - event: Mint(address sender, address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1)
+      - event: Burn(address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1)
+      - event: Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)
+  - name: ERC20
+    events:
+      - event: Transfer(address indexed from, address indexed to, uint256 value)
+  - name: L2Gateway
+    events:
+      - event: DepositFinalized(address indexed l1Token, address indexed from, address indexed to, uint256 amount)
+      - event: WithdrawalInitiated(address l1Token, address indexed from, address indexed to, uint256 indexed l2ToL1Id, uint256 exitNum, uint256 amount)
+  - name: MorphoVault
+    events:
+      - event: Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)
+      - event: Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)
+chains:
+  - id: 4663
+    start_block: 0
+    hypersync_config:
+      url: https://robinhood.hypersync.xyz
+    rpc:
+      - url: ${RPC_URL:-https://rpc.mainnet.chain.robinhood.com}
+        for: fallback
+    contracts:
+      - name: UniswapV3Factory
+        address: "0x1f7d7550B1b028F7571E69A784071F0205FD2EfA"
+      - name: UniswapV3Pool
+        address:
+          - "0x52e65B17fB6E5BA00Ed806f37Afcd2DaA50271Ca"
+          - "0x69BfaF19C9f377BB306a89aEd9F6B07e2c1a8d9a"
+          - "0xa9188730Fe85Be88ad499D7d52B099e800fB0334"
+      - name: ERC20
+        address:
+          - "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+          - "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+          - "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC"
+          - "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9"
+          - "0x322F0929c4625eD5bAd873c95208D54E1c003b2d"
+          - "0xe93237C50D904957Cf27E7B1133b510C669c2e74"
+          - "0x12f190a9F9d7D37a250758b26824B97CE941bF54"
+          - "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3"
+      - name: L2Gateway
+        address: "0x1E324B9316138CA9a73F960213621AD1aaf01B89"
+      - name: MorphoVault
+        address:
+          - "0xBeEff033F34C046626B8D0A041844C5d1A5409dd"
+          - "0xbEeFF0fb1Dc19344A87b8479dAb60A2e16160737"

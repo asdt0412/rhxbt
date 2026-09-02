@@ -1,4 +1,4 @@
-import { bigint, pgTable, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
+import { bigint, integer, pgTable, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
 
 export const seenSignals = pgTable(
   "seen_signals",
@@ -34,4 +34,30 @@ export const kvState = pgTable("kv_state", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const schema = { seenSignals, postedSignals, repliedTweets, kvState };
+export const rawEvents = pgTable("raw_events", {
+  id: text("id").primaryKey(),
+  eventName: varchar("event_name", { length: 64 }).notNull(),
+  address: varchar("address", { length: 42 }).notNull(),
+  txHash: text("tx_hash").notNull(),
+  blockNumber: bigint("block_number", { mode: "number" }).notNull(),
+  logIndex: integer("log_index").notNull(),
+  timestamp: timestamp("ts", { withTimezone: true }),
+  args: text("args").notNull(),
+});
+
+export const beatPosts = pgTable("beat_posts", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  beat: varchar("beat", { length: 32 }).notNull(),
+  hourKey: varchar("hour_key", { length: 16 }).notNull(),
+  signalRef: text("signal_ref").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const schema = {
+  seenSignals,
+  postedSignals,
+  repliedTweets,
+  kvState,
+  rawEvents,
+  beatPosts,
+};

@@ -2,10 +2,12 @@ import { config } from "../config.js";
 import { getStore } from "../db.js";
 import { log } from "../logger.js";
 import type { Mention } from "../types.js";
-import { fetchMentions, fetchTweetsByIds } from "../x.js";
+import { fetchMentions } from "../x.js";
 
 const SINCE_KEY = "mentions_since_id";
 const MAX_THREAD = 3;
+
+/** Polled every 10 minutes. Single X read; since_id advances so leftovers are dropped. */
 
 export async function collectMentions(): Promise<Mention[]> {
   const store = getStore();
@@ -16,14 +18,8 @@ export async function collectMentions(): Promise<Mention[]> {
     return [];
   }
 
-  const parentIds: string[] = [];
-  for (const t of page.tweets) {
-    const parent = t.referenced_tweets?.find((r) => r.type === "replied_to" || r.type === "quoted");
-    if (parent && !page.includesTweets.has(parent.id)) parentIds.push(parent.id);
-  }
-  const extra = await fetchTweetsByIds(parentIds);
-  for (const [id, t] of extra) page.includesTweets.set(id, t);
-
+  // One X read per 10-min tick: parent/thread context comes only from the
+  // mentions response expansions. No follow-up tweet lookups.
   const mentions: Mention[] = [];
   for (const t of page.tweets) {
     const author = t.author_id ? page.users.get(t.author_id) : undefined;
